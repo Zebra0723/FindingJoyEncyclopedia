@@ -272,6 +272,7 @@
       '  fj check <thing>    focused check',
       '  fj ? <question>     ask anything',
       '  fj help             show this',
+      '  fj clear            wipe the chat',
       '  clear               clear screen',
       '',
       'each answer ends with sources (chapters/pages).'
@@ -360,7 +361,7 @@
     history.unshift(trimmed);
     histIdx = -1;
 
-    if (trimmed === 'clear'){ out.innerHTML = ''; return; }
+    if (trimmed === 'clear' || trimmed === 'fj clear'){ out.innerHTML = ''; return; }
     if (trimmed === 'fj help' || trimmed === 'help'){ showHelp(); return; }
     if (!trimmed.startsWith('fj')){
       println('unknown. type "fj help"', 'orange');
