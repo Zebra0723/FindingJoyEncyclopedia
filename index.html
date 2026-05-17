@@ -137,6 +137,32 @@
     margin-top: 4px;
   }
   .footer a { color: var(--green-light); text-decoration: none; }
+  .srcbtn {
+    background: transparent;
+    border: 0.5px solid var(--green);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .srcbtn.active {
+    background: var(--green);
+    color: var(--bg-dark);
+    font-weight: 600;
+  }
+  #studio-pick {
+    margin-top: 8px;
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    font-family: inherit;
+    font-size: 12px;
+  }
 </style>
 </head>
 <body>
@@ -152,7 +178,19 @@
     <button class="btn" id="save-key">save</button>
   </div>
 
-  <label class="pdf-zone" for="pdf-input">
+  <div class="row" id="src-row">
+    <label>source:</label>
+    <button class="srcbtn" id="src-studio" type="button">📓 studio</button>
+    <button class="srcbtn" id="src-pdf" type="button">📎 pdf</button>
+  </div>
+
+  <div class="pdf-zone" id="studio-zone" style="display:none; cursor:pointer;">
+    <div class="pdf-zone-label">📓 vortex studio</div>
+    <div id="studio-status" class="pdf-status">scanning this browser…</div>
+    <select id="studio-pick" style="display:none;"></select>
+  </div>
+
+  <label class="pdf-zone" for="pdf-input" id="pdf-zone" style="display:none;">
     <div class="pdf-zone-label">📎 tap to pick your pdf</div>
     <div id="pdf-status" class="pdf-status">no file yet</div>
     <input type="file" id="pdf-input" class="pdf-input" accept="application/pdf,.pdf" />
@@ -184,6 +222,12 @@
   const run = document.getElementById('run');
   const pdfInput = document.getElementById('pdf-input');
   const pdfStatus = document.getElementById('pdf-status');
+  const pdfZone = document.getElementById('pdf-zone');
+  const studioZone = document.getElementById('studio-zone');
+  const studioStatus = document.getElementById('studio-status');
+  const studioPick = document.getElementById('studio-pick');
+  const srcStudio = document.getElementById('src-studio');
+  const srcPdf = document.getElementById('src-pdf');
   const chips = document.querySelectorAll('.chip');
   const keyInput = document.getElementById('api-key');
   const saveKey = document.getElementById('save-key');
@@ -194,6 +238,8 @@
   let histIdx = -1;
   let busy = false;
   let apiKey = '';
+  let source = null;
+  let studioKey = '';
 
   try { apiKey = localStorage.getItem('fj-key') || ''; } catch(e) {}
   if (apiKey) keyInput.value = apiKey;
@@ -241,7 +287,7 @@
 
   println('fj v1.0 — standalone.', 'green');
   println('1. paste api key + save', 'muted');
-  println('2. drop pdf', 'muted');
+  println('2. choose a source: studio or pdf', 'muted');
   println('3. type: fj help', 'muted');
 
   idbGet('pdf').then(saved => {
@@ -252,6 +298,195 @@
       pdfStatus.style.color = 'var(--yellow)';
     }
   }).catch(() => {});
+
+  const RESERVED = ['fj-key', 'fj-studio-key'];
+  let studioRef = null;
+  let studioCands = [];
+
+  function stripHtml(s){
+    if (s.indexOf('<') === -1) return s;
+    try {
+      const d = document.createElement('div');
+      d.innerHTML = s;
+      return d.textContent || d.innerText || '';
+    } catch(e){ return s; }
+  }
+  function jsonProse(v, acc){
+    if (v == null) return;
+    if (typeof v === 'string'){ if (v.trim()) acc.push(v); return; }
+    if (typeof v !== 'object') return;
+    if (Array.isArray(v)){ v.forEach(x => jsonProse(x, acc)); return; }
+    Object.keys(v).forEach(k => jsonProse(v[k], acc));
+  }
+  function extractProse(raw){
+    if (typeof raw !== 'string') {
+      try { raw = JSON.stringify(raw); } catch(e){ return ''; }
+    }
+    let s = (raw || '').trim();
+    if (!s) return '';
+    if (s[0] === '{' || s[0] === '['){
+      try {
+        const j = JSON.parse(s);
+        if (typeof j === 'string') return stripHtml(j).trim();
+        const acc = [];
+        jsonProse(j, acc);
+        if (acc.length) return stripHtml(acc.join('\n')).trim();
+      } catch(e){}
+    }
+    return stripHtml(s).trim();
+  }
+  function wordCount(t){
+    const m = t.trim().match(/\S+/g);
+    return m ? m.length : 0;
+  }
+
+  function scanLocal(){
+    const list = [];
+    for (let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if (!k || RESERVED.indexOf(k) !== -1) continue;
+      let raw;
+      try { raw = localStorage.getItem(k); } catch(e){ continue; }
+      const text = extractProse(raw);
+      const w = wordCount(text);
+      if (w >= 50) list.push({ ref: { t:'ls', k:k }, key:k, words:w });
+    }
+    return list;
+  }
+  async function scanIdb(){
+    const found = [];
+    if (!indexedDB.databases) return found;
+    let dbs;
+    try { dbs = await indexedDB.databases(); } catch(e){ return found; }
+    for (const info of dbs){
+      const name = info && info.name;
+      if (!name || name === 'fj-db') continue;
+      let db;
+      try {
+        db = await new Promise((res, rej) => {
+          const r = indexedDB.open(name);
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
+          r.onblocked = () => rej(new Error('blocked'));
+        });
+      } catch(e){ continue; }
+      const stores = Array.from(db.objectStoreNames || []);
+      for (const sName of stores){
+        let rows;
+        try {
+          rows = await new Promise((res, rej) => {
+            const tx = db.transaction(sName, 'readonly');
+            const rq = tx.objectStore(sName).getAll();
+            rq.onsuccess = () => res(rq.result || []);
+            rq.onerror = () => rej(rq.error);
+          });
+        } catch(e){ continue; }
+        let best = '';
+        rows.forEach(row => {
+          const t = extractProse(row);
+          if (t.length > best.length) best = t;
+        });
+        const w = wordCount(best);
+        if (w >= 50) found.push({ ref:{ t:'idb', db:name, s:sName }, key:name + ' › ' + sName, words:w });
+      }
+      try { db.close(); } catch(e){}
+    }
+    return found;
+  }
+  async function readStudio(){
+    if (!studioRef) return '';
+    if (studioRef.t === 'ls'){
+      try { return extractProse(localStorage.getItem(studioRef.k) || ''); } catch(e){ return ''; }
+    }
+    try {
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open(studioRef.db);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      const rows = await new Promise((res, rej) => {
+        const tx = db.transaction(studioRef.s, 'readonly');
+        const rq = tx.objectStore(studioRef.s).getAll();
+        rq.onsuccess = () => res(rq.result || []);
+        rq.onerror = () => rej(rq.error);
+      });
+      try { db.close(); } catch(e){}
+      let best = '';
+      rows.forEach(row => {
+        const t = extractProse(row);
+        if (t.length > best.length) best = t;
+      });
+      return best;
+    } catch(e){ return ''; }
+  }
+
+  function setStudio(c){
+    studioRef = c.ref;
+    studioKey = c.key;
+    try { localStorage.setItem('fj-studio-key', JSON.stringify({ key: c.key })); } catch(e){}
+    studioStatus.textContent = '✓ ' + c.key + '  ~' + c.words + ' words (live)';
+    studioStatus.style.color = 'var(--yellow)';
+  }
+  async function pickStudio(){
+    studioStatus.textContent = 'scanning this browser…';
+    studioStatus.style.color = 'var(--orange)';
+    studioPick.style.display = 'none';
+    let cands = scanLocal();
+    try { cands = cands.concat(await scanIdb()); } catch(e){}
+    cands.sort((a, b) => b.words - a.words);
+    studioCands = cands;
+    if (!cands.length){
+      studioRef = null;
+      studioStatus.textContent = 'no studio text in this browser. open vortex on this device & let it save, then tap here to rescan — or use pdf.';
+      studioStatus.style.color = 'var(--red)';
+      return;
+    }
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('fj-studio-key') || 'null'); } catch(e){}
+    let chosen = cands[0];
+    if (saved && saved.key){
+      const m = cands.filter(c => c.key === saved.key)[0];
+      if (m) chosen = m;
+    }
+    setStudio(chosen);
+    studioPick.innerHTML = '';
+    cands.forEach((c, i) => {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = c.key + '  (~' + c.words + ' words)';
+      studioPick.appendChild(o);
+    });
+    studioPick.value = String(cands.indexOf(chosen));
+    studioPick.style.display = cands.length > 1 ? 'block' : 'none';
+  }
+
+  function chooseSource(s){
+    source = s;
+    srcStudio.classList.toggle('active', s === 'studio');
+    srcPdf.classList.toggle('active', s === 'pdf');
+    if (s === 'pdf'){
+      pdfZone.style.display = '';
+      studioZone.style.display = 'none';
+      println(pdfName ? ('source: pdf — using ' + pdfName + ' (tap to change)') : 'source: pdf — pick a file above.', 'yellow');
+    } else {
+      studioZone.style.display = '';
+      pdfZone.style.display = 'none';
+      println('source: studio — reading vortex live from this browser.', 'yellow');
+      pickStudio();
+    }
+  }
+
+  srcStudio.addEventListener('click', () => chooseSource('studio'));
+  srcPdf.addEventListener('click', () => chooseSource('pdf'));
+  studioPick.addEventListener('change', () => {
+    const c = studioCands[Number(studioPick.value)];
+    if (c) setStudio(c);
+  });
+  studioPick.addEventListener('click', e => e.stopPropagation());
+  studioZone.addEventListener('click', e => {
+    if (e.target === studioPick) return;
+    pickStudio();
+  });
 
   saveKey.addEventListener('click', () => {
     apiKey = keyInput.value.trim();
@@ -311,13 +546,17 @@
       '  fj clear            wipe the chat',
       '  clear               wipe the chat',
       '',
+      'source: tap studio or pdf up top (asked each refresh).',
+      '  studio = live vortex text, no upload.',
+      '  pdf    = your file (last one auto-loads).',
+      '',
       'each answer ends with sources (chapters/pages).'
     ];
     lines.forEach(l => println(l));
   }
 
   function buildPrompt(userCmd){
-    return 'You are "fj", a command-line trilogy bible for Bajun\'s YA novel "Finding Joy" about Laleh Yousafi, a girl who secretly learns tennis in Taliban-controlled Afghanistan, escapes, and becomes a pro player. Trilogy: 3 books (~37, 42, 43 chapters). Main characters: Laleh Yousafi, Fatima Zahra, Sinclair. Key mysteries: medallion, the name "Farah", surname mechanic (Laleh and Fatima never knew each other\'s last names as kids in Kabul).\n\nUser ran this CLI command: `' + userCmd + '`\n\nRules:\n- Terminal-style output: terse, scannable, no fluff intro.\n- Plain text only. No markdown, no asterisks. 2-space indent for sub-items.\n- Use the PDF as your only source of truth.\n- For "fj <name>": who they are, what they know, key moments, arc so far.\n- For "fj ch N": chapter summary, POV, mysteries planted, locked details.\n- For "fj mystery <X>": every breadcrumb in chronological order.\n- For "fj check": scan for contradictions; list them or say "no contradictions found".\n- For "fj find \\"X\\"": every occurrence with chapter context and approximate page.\n- For "fj ? <question>": answer directly from the PDF.\n- For "fj timeline": chronological events.\n- If the PDF doesn\'t cover something, say so. Don\'t invent.\n- ALWAYS end with: "sources: ch X (p.N), ch Y (p.N)".\n- Under ~250 words.';
+    return 'You are "fj", a command-line trilogy bible for Bajun\'s YA novel "Finding Joy" about Laleh Yousafi, a girl who secretly learns tennis in Taliban-controlled Afghanistan, escapes, and becomes a pro player. Trilogy: 3 books (~37, 42, 43 chapters). Main characters: Laleh Yousafi, Fatima Zahra, Sinclair. Key mysteries: medallion, the name "Farah", surname mechanic (Laleh and Fatima never knew each other\'s last names as kids in Kabul).\n\nUser ran this CLI command: `' + userCmd + '`\n\nRules:\n- Terminal-style output: terse, scannable, no fluff intro.\n- Plain text only. No markdown, no asterisks. 2-space indent for sub-items.\n- Use the provided manuscript (PDF or studio text) as your only source of truth.\n- For "fj <name>": who they are, what they know, key moments, arc so far.\n- For "fj ch N": chapter summary, POV, mysteries planted, locked details.\n- For "fj mystery <X>": every breadcrumb in chronological order.\n- For "fj check": scan for contradictions; list them or say "no contradictions found".\n- For "fj find \\"X\\"": every occurrence with chapter context and approximate page.\n- For "fj ? <question>": answer directly from the manuscript.\n- For "fj timeline": chronological events.\n- If the manuscript doesn\'t cover something, say so. Don\'t invent.\n- ALWAYS end with: "sources: ch X (p.N), ch Y (p.N)".\n- Under ~250 words.';
   }
 
   async function callApi(userCmd){
@@ -325,9 +564,30 @@
       println('error: no api key. paste key + save above.', 'red');
       return;
     }
-    if (!pdfData){
-      println('error: no pdf loaded. drop one above first.', 'red');
+    if (!source){
+      println('error: choose a source first — tap studio or pdf above.', 'red');
       return;
+    }
+    let content;
+    if (source === 'pdf'){
+      if (!pdfData){
+        println('error: no pdf loaded. pick one above first.', 'red');
+        return;
+      }
+      content = [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfData } },
+        { type: 'text', text: buildPrompt(userCmd) }
+      ];
+    } else {
+      const studioText = await readStudio();
+      if (!studioText || wordCount(studioText) < 30){
+        println('error: no studio text found. open vortex on this device & save, or switch source.', 'red');
+        return;
+      }
+      content = [
+        { type: 'text', text: 'MANUSCRIPT (from the vortex writing studio — treat this as the full source text):\n\n' + studioText },
+        { type: 'text', text: buildPrompt(userCmd) }
+      ];
     }
     busy = true;
     run.disabled = true;
@@ -348,10 +608,7 @@
           max_tokens: 1000,
           messages: [{
             role: 'user',
-            content: [
-              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfData } },
-              { type: 'text', text: buildPrompt(userCmd) }
-            ]
+            content: content
           }]
         })
       });
