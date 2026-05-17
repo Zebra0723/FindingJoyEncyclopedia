@@ -267,6 +267,82 @@
   .cc-line { font-size: 12px; line-height: 1.5; color: var(--text); }
   #chars-grid::-webkit-scrollbar { width: 6px; }
   #chars-grid::-webkit-scrollbar-thumb { background: var(--green); border-radius: 3px; }
+  #view-chat {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 260px;
+  }
+  #chat-thread {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+    min-height: 200px;
+  }
+  #chat-thread::-webkit-scrollbar { width: 6px; }
+  #chat-thread::-webkit-scrollbar-thumb { background: var(--green); border-radius: 3px; }
+  .cb {
+    max-width: 86%;
+    padding: 9px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .cb.user {
+    align-self: flex-end;
+    background: var(--green);
+    color: var(--bg-dark);
+    border-bottom-right-radius: 4px;
+  }
+  .cb.bot {
+    align-self: flex-start;
+    background: var(--bg-dark);
+    color: var(--text);
+    border: 0.5px solid var(--border);
+    border-left: 3px solid var(--green-light);
+    border-bottom-left-radius: 4px;
+  }
+  .cb.sys { align-self: center; font-size: 11px; color: var(--muted); background: transparent; }
+  .chat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chat-chip {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    color: var(--green-light);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .chat-bar { display: flex; gap: 6px; align-items: center; }
+  .chat-bar input {
+    flex: 1;
+    background: var(--bg-dark);
+    border: 0.5px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    outline: none;
+    min-width: 0;
+  }
+  .iconbtn {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -303,6 +379,7 @@
   <div class="nav">
     <button id="nav-cli" class="active" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="m7 9 3 3-3 3M13 15h4"/></svg> cli</button>
     <button id="nav-chars" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5M21 20a6 6 0 0 0-5-5.9"/></svg> characters</button>
+    <button id="nav-chat" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg> ask</button>
   </div>
 
   <div id="view-cli">
@@ -332,6 +409,21 @@
     <div id="chars-grid"></div>
   </div>
 
+  <div id="view-chat">
+    <div id="chat-thread"></div>
+    <div class="chat-chips">
+      <button class="chat-chip" type="button">Who is Farah and what is her arc?</button>
+      <button class="chat-chip" type="button">Explain the surname mystery for the sequel</button>
+      <button class="chat-chip" type="button">Trace the medallion across the book</button>
+      <button class="chat-chip" type="button">How does the frame story (ch 1 / ch 43) work?</button>
+    </div>
+    <div class="chat-bar">
+      <input id="chat-input" type="text" placeholder="ask about Finding Joy…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button class="btn" id="chat-send">send</button>
+      <button class="iconbtn" id="chat-reset" type="button">new</button>
+    </div>
+  </div>
+
   <div class="footer">made for bajun · key stays in this browser only</div>
 </div>
 
@@ -359,6 +451,13 @@
   const charsBuild = document.getElementById('chars-build');
   const charsStatus = document.getElementById('chars-status');
   const charsGrid = document.getElementById('chars-grid');
+  const navChat = document.getElementById('nav-chat');
+  const viewChat = document.getElementById('view-chat');
+  const chatThread = document.getElementById('chat-thread');
+  const chatInput = document.getElementById('chat-input');
+  const chatSend = document.getElementById('chat-send');
+  const chatReset = document.getElementById('chat-reset');
+  const chatChips = document.querySelectorAll('.chat-chip');
 
   let pdfData = null;
   let pdfName = null;
@@ -678,6 +777,8 @@
       '  studio = live vortex text, no upload.',
       '  pdf    = your file (last one auto-loads).',
       '',
+      'tabs: cli (this), characters, ask (chat about the book).',
+      '',
       'each answer ends with sources (chapters/pages).'
     ];
     lines.forEach(l => println(l));
@@ -966,17 +1067,153 @@
     }
   }
 
+  const CANON = `Finding Joy is the story of Laleh Yousafi, an Afghan girl born in Kabul on 6 May 1986 who refuses to let the Taliban steal her future. It is the first book in a planned series; the sequel is called Recovering Connection.
+
+When the Taliban seize Kabul in August 1996, ten-year-old Laleh's life shatters. Her school is closed to girls. Her best friend Fatima Zahra vanishes in the night, leaving behind only an unsent letter and a promise: I. Will. Find. You. Her father is arrested. Her mother trades nearly everything they own to bring him home. The girl who once raced through the streets of Kabul stops speaking. Then her cousin Farah arrives from Mazar-i-Sherif, carrying a bag with something hidden inside. On a forbidden rooftop before dawn, Farah hands Laleh a tennis racket and whispers, "Tennis is the game where the quiet girl wins." For two years, in secret, on a chalk-drawn court above a city that has banned everything she loves, Laleh learns to play. Her mother gives her a generational medallion (passed down from her mother Mariam, and Mariam's mother before that). Her family makes the impossible choice to send her away. At twelve, Laleh escapes Afghanistan with Farah and begins again in a country whose language she does not speak.
+
+The Taliban fall in November 2001, experienced through Laleh's grandmother Mariam's eyes in a one-off POV chapter. Music returns. Kites return. Uncovered women walk the streets again. But Laleh is in Europe, on the junior tour, and doesn't know yet. Years later, after the brutal first losses on the professional tour, after public failure at Roland Garros and quiet doubt in hotel rooms, Laleh stands at Wimbledon. Her family waits at the end of a tunnel after her quarterfinal win. The medallion is still at her neck. The book ends with her winning the Wimbledon final and the closing paragraph: "In Buddhism, they seek enlightenment. In Islam, they try to obtain salvation. In Hinduism, they work towards achieving unity with the divine. As for me, an Afghan girl who was searching for freedom, I was finding joy. And I found joy."
+
+An epilogue (Ch 47) from Fatima's POV sets up the sequel: cryptically, Fatima has been playing tennis too, but the book never directly states this. Only readers with great logic will figure it out. PRESERVE THIS MYSTERY in answers unless explicitly asked to analyze the hint.
+
+MAJOR CHARACTERS
+- Laleh Yousafi (protagonist): born 6 May 1986 in Kabul. Brilliant, athletic, curious as a child; goes silent after losing her father and best friend; becomes a professional tennis player. Two POV voices: Young Laleh (curious, kid-like, scared, simple sentences) and Pro Laleh (poetic, tense, controlled, short punchy lines, counts things).
+- Aziza Yousafi (mother): warm, nostalgic, loving, fierce when needed. Trades all her jewelry, gold, and savings to bribe for Mohammed's release after his arrest, but protects the generational medallion for Laleh. POV chapters: warm mother (Ch 2), fierce strategist (Ch 10), relieved wife (Ch 12), grieving mother (Ch 27).
+- Mohammed Yousafi / Padar (father): quiet, protective, weighed down. Works at a clothing factory in Kabul. Witnesses Taliban violence (Ch 5). Arrested and held in prison (Ch 7, Ch 11). Released after Aziza's bribe (Ch 12). Heals slowly. Sees Laleh win Wimbledon (Ch 45).
+- Ahmed Yousafi (brother): two years older than Laleh. Starts as the jealous "Moon" to Laleh's "Sun" (Ch 3). Class clown, engineering-minded, fixes a broken family radio. Grows into love and gratitude for his sister. Watches her win the Wimbledon semifinal (Ch 44).
+- Fatima Zahra (best friend): Laleh's childhood best friend. Disappears in the night with her parents on 10 January 1997 (Ch 6), leaving an unsent letter ending "I. Will. Find. You." Returns in the Ch 47 epilogue with a cryptic POV hinting at the sequel.
+- Farah (cousin, becomes Laleh's tennis coach): older female cousin from Mazar-i-Sherif. Was a junior tennis champion before having to give it up. Comes to Kabul after Aziza writes to her, secretly teaches Laleh tennis on a rooftop, escapes Afghanistan with her, becomes her professional coach. Cryptic, intense, uses tennis metaphors, has buried tennis dreams that resurface through Laleh.
+- Mariam (grandmother, Aziza's mother): late 60s, has lived in Kabul her whole life. One-off POV in Ch 32 when the Taliban fall in November 2001. Planted earlier as short mentions of "my mother" in Ch 2, 10, 14, 27, 31. Opens with "I had lived in Kabul for sixty-seven years..."
+- Sinclair: Laleh's opponent in the Wimbledon quarterfinal (Ch 1, the frame-story opening match).
+- Miss Khattak: Ahmed's favorite teacher, killed by the Taliban (mentioned in Ch 3).
+- Ali: Ahmed's best friend in childhood, family moved away (Ch 3).
+
+KEY THREADS
+- The Medallion: jewelry passed down through three generations of women (Mariam's mother -> Mariam -> Aziza). Ch 10 Aziza protects it (sells everything else to bribe for Mohammed's release). Ch 26 she presses it into Laleh's hand at the escape: "This was my mother's. And her mother's. Carry us with you." Pro Laleh wears it during Wimbledon (Ch 1). Family reunion in the tunnel after the QF (Ch 43): Aziza touches it, "You kept it." Laleh: "I never took it off."
+- Frame Story: Ch 1 opens with Pro Laleh winning the Wimbledon quarterfinal against Sinclair; ends with a staff member saying "Miss Yousafi, they're waiting for you." Ch 43 picks up directly from this line; the "they" is Mohammed, Aziza, and Ahmed, who travelled to Wimbledon to surprise her.
+- The Surname Mystery (for Recovering Connection): Fatima and Laleh were childhood friends but never knew each other's last names (just "Laleh" and "Fatima"). This explains why Fatima's search for Laleh fails for 14 years; she searches "Laleh" + tennis + Afghanistan but never "Yousafi." Central reunion mechanic of the sequel.
+
+THEMES: freedom vs oppression; the cost of survival; female resilience under apartheid; friendship that survives separation; sibling love after rivalry; the price of family sacrifice; the power of secret joy; sports as resistance and identity.
+
+HISTORICAL SETTING: 6 May 1986 Laleh born during the late Soviet-Afghan war; early 1990s Soviet withdrawal, civil war, rise of the Taliban; August 1996 Taliban seize Kabul; 1996-2001 Taliban rule (girls' schools closed, music banned, burqa mandatory for women over 11, public beatings/arrests); Fatima's family leaves 10 Jan 1997; Laleh escapes circa 1998; November 2001 US-led invasion ends Taliban rule; 2001-2005 rebuilding and Laleh's pro rise; 2004-2005 Wimbledon climax. Real figures referenced: Mullah Mohammad Omar; Adolf Hitler (rhetorical comparison by Mohammed, Ch 5); Nelson Mandela (rhetorical comparison by Laleh, Ch 4, "Apartheid didn't stop because of Nelson Mandela. Gender apartheid had begun in Afghanistan").
+
+TONE/STYLE: multi-POV, almost every chapter a different family member. Distinct voices: Young Laleh (simple, curious, lots of "why?"), Pro Laleh (poetic, tense, short sentences, counts things), Aziza (warm, nostalgic, "I did not know then..."), Mohammed (quiet, weighty), Ahmed (sharp, sarcastic, secretly tender), Farah (cryptic, intense, tennis metaphors), Fatima (warm, longing, heartbroken), Mariam (old, slow, wise, plain-spoken). Author craft moves: paragraph-final two-word sentences ("Of existence."), period-separated emphasis ("I. Will. Find. You."), anaphora / lists of three, signature phrases ("lacerated but loyal"), frame-story structure.
+
+CHAPTER PLAN NOTE: Chapters 16 and 35 are intentionally unused/skipped. Never treat them as containing content.`;
+
+  const CHAT_SYSTEM = 'You are the Finding Joy companion, an expert assistant dedicated solely to Bajun\'s YA novel "Finding Joy" (book 1; sequel "Recovering Connection"). ' +
+    'Source of truth: the manuscript provided in the first user message (PDF or studio text). The SERIES BIBLE below is the author\'s authoritative plan; trust it for canon, structure, character intent, and sequel setup even where the current draft is incomplete or silent. If the manuscript and the bible clearly conflict, answer from the manuscript but note the discrepancy briefly. ' +
+    'Rules: Chapters 16 and 35 are unused; never treat them as content. The Ch 47 Fatima epilogue only hints she plays tennis; do not state it outright unless the user explicitly asks you to analyze that hint, otherwise preserve the mystery. This is the author\'s own tool, so spoilers are fine. Be warm and concrete; cite chapters and POV when you can; quote sparingly. Do not invent; if neither the manuscript nor the bible covers something, say so plainly. Plain text, no markdown headings or asterisks, stay focused.\n\nSERIES BIBLE:\n' + CANON;
+
+  let chatMsgs = [];
+  let chatBlock = null;
+  let chatBusy = false;
+
+  function chatBubble(role, text){
+    const d = document.createElement('div');
+    d.className = 'cb ' + role;
+    d.textContent = text;
+    chatThread.appendChild(d);
+    chatThread.scrollTop = chatThread.scrollHeight;
+    return d;
+  }
+  function resetChat(note){
+    chatMsgs = [];
+    chatBlock = null;
+    chatThread.innerHTML = '';
+    chatBubble('sys', note || 'new chat — grounded in your current source + the series bible. ask anything about Finding Joy.');
+  }
+  async function chatSnapshot(){
+    if (chatBlock) return { ok:true };
+    const src = await resolveSource();
+    if (!src.ok) return src;
+    const blk = JSON.parse(JSON.stringify(src.blocks[0]));
+    blk.cache_control = { type:'ephemeral' };
+    chatBlock = blk;
+    return { ok:true };
+  }
+  async function sendChat(text){
+    text = (text || '').trim();
+    if (!text || chatBusy) return;
+    if (!apiKey){ chatBubble('sys', 'no api key — paste key + save above.'); return; }
+    const snap = await chatSnapshot();
+    if (!snap.ok){ chatBubble('sys', snap.msg); return; }
+    chatMsgs.push({ role:'user', text:text });
+    chatBubble('user', text);
+    chatInput.value = '';
+    chatBusy = true;
+    chatSend.disabled = true;
+    chatSend.textContent = '...';
+    const pending = chatBubble('bot', 'thinking…');
+    const apiMsgs = chatMsgs.map((m, i) => {
+      if (i === 0) return { role:'user', content:[ chatBlock, { type:'text', text:m.text } ] };
+      return { role:m.role, content:m.text };
+    });
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1200,
+          system:[{ type:'text', text: CHAT_SYSTEM, cache_control:{ type:'ephemeral' } }],
+          messages: apiMsgs
+        })
+      });
+      if (!r.ok){
+        const t = await r.text();
+        pending.className = 'cb sys';
+        pending.textContent = 'http ' + r.status + ': ' + t.slice(0, 200);
+        chatMsgs.pop();
+        return;
+      }
+      const data = await r.json();
+      const ans = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      if (!ans){
+        pending.className = 'cb sys';
+        pending.textContent = 'no response.';
+        chatMsgs.pop();
+        return;
+      }
+      pending.textContent = ans;
+      chatMsgs.push({ role:'assistant', text: ans });
+    } catch(e){
+      pending.className = 'cb sys';
+      pending.textContent = 'error: ' + (e && e.message ? e.message : e);
+      chatMsgs.pop();
+    } finally {
+      chatBusy = false;
+      chatSend.disabled = false;
+      chatSend.textContent = 'send';
+      chatThread.scrollTop = chatThread.scrollHeight;
+    }
+  }
+
   function showView(which){
-    const isChars = which === 'chars';
-    navChars.classList.toggle('active', isChars);
-    navCli.classList.toggle('active', !isChars);
-    viewChars.style.display = isChars ? 'flex' : 'none';
-    viewCli.style.display = isChars ? 'none' : '';
+    const map = { cli:[navCli, viewCli], chars:[navChars, viewChars], chat:[navChat, viewChat] };
+    Object.keys(map).forEach(k => {
+      const pair = map[k];
+      const on = k === which;
+      pair[0].classList.toggle('active', on);
+      pair[1].style.display = on ? (k === 'cli' ? '' : 'flex') : 'none';
+    });
   }
   navCli.addEventListener('click', () => showView('cli'));
   navChars.addEventListener('click', () => showView('chars'));
+  navChat.addEventListener('click', () => showView('chat'));
   charsBuild.addEventListener('click', buildCharacters);
   charsSearch.addEventListener('input', renderChars);
+  chatSend.addEventListener('click', () => sendChat(chatInput.value));
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); sendChat(chatInput.value); }
+  });
+  chatReset.addEventListener('click', () => resetChat());
+  chatChips.forEach(c => c.addEventListener('click', () => sendChat(c.textContent)));
+  resetChat();
   loadCharsCache();
 })();
 </script>
