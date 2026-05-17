@@ -163,6 +163,110 @@
     font-family: inherit;
     font-size: 12px;
   }
+  .ico { width: 1em; height: 1em; vertical-align: -0.13em; flex-shrink: 0; }
+  .nav {
+    display: flex;
+    gap: 6px;
+    background: var(--bg-dark);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 5px;
+  }
+  .nav button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .nav button.active {
+    background: var(--green);
+    color: var(--bg-dark);
+    font-weight: 600;
+  }
+  #view-cli {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 260px;
+  }
+  #view-chars {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 260px;
+  }
+  .chars-bar { display: flex; gap: 6px; align-items: center; }
+  .chars-bar input {
+    flex: 1;
+    background: var(--bg-dark);
+    border: 0.5px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    outline: none;
+    min-width: 0;
+  }
+  #chars-status { font-size: 11px; color: var(--muted); padding: 0 2px; }
+  #chars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+    overflow-y: auto;
+    align-content: start;
+    padding-bottom: 4px;
+  }
+  .cc {
+    background: var(--bg-dark);
+    border: 0.5px solid var(--border);
+    border-left: 3px solid var(--acc, var(--green));
+    border-radius: 10px;
+    padding: 12px 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cc-name {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 15px; font-weight: 600;
+    color: var(--acc, var(--green-light));
+  }
+  .cc-aka { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .cc-role {
+    align-self: flex-start;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bg-dark);
+    background: var(--acc, var(--green));
+    border-radius: 999px;
+    padding: 3px 9px;
+  }
+  .cc-who { font-size: 12px; line-height: 1.5; color: var(--text); }
+  .cc-block { display: flex; flex-direction: column; gap: 3px; }
+  .cc-h {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .cc-h .ico { color: var(--acc, var(--green)); }
+  .cc-block ul { margin: 0; padding-left: 16px; }
+  .cc-block li { font-size: 12px; line-height: 1.5; color: var(--text); }
+  .cc-line { font-size: 12px; line-height: 1.5; color: var(--text); }
+  #chars-grid::-webkit-scrollbar { width: 6px; }
+  #chars-grid::-webkit-scrollbar-thumb { background: var(--green); border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -180,39 +284,55 @@
 
   <div class="row" id="src-row">
     <label>source:</label>
-    <button class="srcbtn" id="src-studio" type="button">📓 studio</button>
-    <button class="srcbtn" id="src-pdf" type="button">📎 pdf</button>
+    <button class="srcbtn" id="src-studio" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2zM21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg> studio</button>
+    <button class="srcbtn" id="src-pdf" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l8-8"/></svg> pdf</button>
   </div>
 
   <div class="pdf-zone" id="studio-zone" style="display:none; cursor:pointer;">
-    <div class="pdf-zone-label">📓 vortex studio</div>
+    <div class="pdf-zone-label">vortex studio</div>
     <div id="studio-status" class="pdf-status">scanning this browser…</div>
     <select id="studio-pick" style="display:none;"></select>
   </div>
 
   <label class="pdf-zone" for="pdf-input" id="pdf-zone" style="display:none;">
-    <div class="pdf-zone-label">📎 tap to pick your pdf</div>
+    <div class="pdf-zone-label">tap to pick your pdf</div>
     <div id="pdf-status" class="pdf-status">no file yet</div>
     <input type="file" id="pdf-input" class="pdf-input" accept="application/pdf,.pdf" />
   </label>
 
-  <div id="output"></div>
-
-  <div class="row">
-    <span class="prompt">$</span>
-    <input id="cmd" type="text" placeholder="fj help" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-    <button class="btn" id="run">run</button>
+  <div class="nav">
+    <button id="nav-cli" class="active" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="m7 9 3 3-3 3M13 15h4"/></svg> cli</button>
+    <button id="nav-chars" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5M21 20a6 6 0 0 0-5-5.9"/></svg> characters</button>
   </div>
 
-  <div class="chip-row">
-    <button class="chip" data-cmd="fj help">help</button>
-    <button class="chip" data-cmd="fj Laleh">fj Laleh</button>
-    <button class="chip" data-cmd="fj ch 1">fj ch 1</button>
-    <button class="chip" data-cmd="fj mystery surname">fj mystery surname</button>
-    <button class="chip" data-cmd="fj check">fj check</button>
+  <div id="view-cli">
+    <div id="output"></div>
+
+    <div class="row">
+      <span class="prompt">$</span>
+      <input id="cmd" type="text" placeholder="fj help" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button class="btn" id="run">run</button>
+    </div>
+
+    <div class="chip-row">
+      <button class="chip" data-cmd="fj help">help</button>
+      <button class="chip" data-cmd="fj Laleh">fj Laleh</button>
+      <button class="chip" data-cmd="fj ch 1">fj ch 1</button>
+      <button class="chip" data-cmd="fj mystery surname">fj mystery surname</button>
+      <button class="chip" data-cmd="fj check">fj check</button>
+    </div>
   </div>
 
-  <div class="footer">made for bajun 🦓 · key stays in this browser only</div>
+  <div id="view-chars">
+    <div class="chars-bar">
+      <input id="chars-search" type="text" placeholder="filter characters…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button class="btn" id="chars-build">build</button>
+    </div>
+    <div id="chars-status">not built yet — tap build to scan your source for every character.</div>
+    <div id="chars-grid"></div>
+  </div>
+
+  <div class="footer">made for bajun · key stays in this browser only</div>
 </div>
 
 <script>
@@ -231,6 +351,14 @@
   const chips = document.querySelectorAll('.chip');
   const keyInput = document.getElementById('api-key');
   const saveKey = document.getElementById('save-key');
+  const navCli = document.getElementById('nav-cli');
+  const navChars = document.getElementById('nav-chars');
+  const viewCli = document.getElementById('view-cli');
+  const viewChars = document.getElementById('view-chars');
+  const charsSearch = document.getElementById('chars-search');
+  const charsBuild = document.getElementById('chars-build');
+  const charsStatus = document.getElementById('chars-status');
+  const charsGrid = document.getElementById('chars-grid');
 
   let pdfData = null;
   let pdfName = null;
@@ -559,36 +687,30 @@
     return 'You are "fj", a command-line trilogy bible for Bajun\'s YA novel "Finding Joy" about Laleh Yousafi, a girl who secretly learns tennis in Taliban-controlled Afghanistan, escapes, and becomes a pro player. Trilogy: 3 books (~37, 42, 43 chapters). Main characters: Laleh Yousafi, Fatima Zahra, Sinclair. Key mysteries: medallion, the name "Farah", surname mechanic (Laleh and Fatima never knew each other\'s last names as kids in Kabul).\n\nUser ran this CLI command: `' + userCmd + '`\n\nRules:\n- Terminal-style output: terse, scannable, no fluff intro.\n- Plain text only. No markdown, no asterisks. 2-space indent for sub-items.\n- Use the provided manuscript (PDF or studio text) as your only source of truth.\n- For "fj <name>": who they are, what they know, key moments, arc so far.\n- For "fj ch N": chapter summary, POV, mysteries planted, locked details.\n- For "fj mystery <X>": every breadcrumb in chronological order.\n- For "fj check": scan for contradictions; list them or say "no contradictions found".\n- For "fj find \\"X\\"": every occurrence with chapter context and approximate page.\n- For "fj ? <question>": answer directly from the manuscript.\n- For "fj timeline": chronological events.\n- If the manuscript doesn\'t cover something, say so. Don\'t invent.\n- ALWAYS end with: "sources: ch X (p.N), ch Y (p.N)".\n- Under ~250 words.';
   }
 
+  async function resolveSource(){
+    if (!source) return { ok:false, msg:'choose a source first — tap studio or pdf above.' };
+    if (source === 'pdf'){
+      if (!pdfData) return { ok:false, msg:'no pdf loaded. pick one above first.' };
+      return { ok:true, blocks:[{ type:'document', source:{ type:'base64', media_type:'application/pdf', data:pdfData } }] };
+    }
+    const studioText = await readStudio();
+    if (!studioText || wordCount(studioText) < 30){
+      return { ok:false, msg:'no studio text found. open vortex on this device & save, or switch source.' };
+    }
+    return { ok:true, blocks:[{ type:'text', text:'MANUSCRIPT (from the vortex writing studio — treat this as the full source text):\n\n' + studioText }] };
+  }
+
   async function callApi(userCmd){
     if (!apiKey){
       println('error: no api key. paste key + save above.', 'red');
       return;
     }
-    if (!source){
-      println('error: choose a source first — tap studio or pdf above.', 'red');
+    const src = await resolveSource();
+    if (!src.ok){
+      println('error: ' + src.msg, 'red');
       return;
     }
-    let content;
-    if (source === 'pdf'){
-      if (!pdfData){
-        println('error: no pdf loaded. pick one above first.', 'red');
-        return;
-      }
-      content = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfData } },
-        { type: 'text', text: buildPrompt(userCmd) }
-      ];
-    } else {
-      const studioText = await readStudio();
-      if (!studioText || wordCount(studioText) < 30){
-        println('error: no studio text found. open vortex on this device & save, or switch source.', 'red');
-        return;
-      }
-      content = [
-        { type: 'text', text: 'MANUSCRIPT (from the vortex writing studio — treat this as the full source text):\n\n' + studioText },
-        { type: 'text', text: buildPrompt(userCmd) }
-      ];
-    }
+    const content = src.blocks.concat([{ type: 'text', text: buildPrompt(userCmd) }]);
     busy = true;
     run.disabled = true;
     run.textContent = '...';
@@ -692,6 +814,170 @@
       cmd.focus();
     });
   });
+
+  const ICONS = {
+    user: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+    first: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
+    seen: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    facts: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 5.2L20 9l-4 3.6L17 19l-5-3-5 3 1-6.4L4 9l5.8-0.8z"/></svg>',
+    rel: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6M8 8.5 5.5 11a3.5 3.5 0 0 0 5 5L13 13.5M16 15.5 18.5 13a3.5 3.5 0 0 0-5-5L11 10.5"/></svg>',
+    arc: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c4 0 5-10 9-10s5 6 9 6"/><path d="M17 13h4v4"/></svg>'
+  };
+  const PALETTE = ['#5dcaa5','#ef9f27','#e2725b','#9b8cff','#54b9e8','#97c459','#e86fae','#f2c14e'];
+  let charsData = [];
+
+  function accentFor(s){
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function asList(v){
+    if (Array.isArray(v)) return v.filter(x => x != null && String(x).trim());
+    if (v == null || String(v).trim() === '') return [];
+    return [v];
+  }
+
+  function renderChars(){
+    const q = charsSearch.value.trim().toLowerCase();
+    charsGrid.innerHTML = '';
+    let shown = 0;
+    charsData.forEach(c => {
+      const name = c.name || c.character || 'Unknown';
+      const aka = asList(c.aka || c.aliases);
+      const facts = asList(c.facts || c.stats);
+      const rels = asList(c.relationships || c.relations);
+      const seen = asList(c.seen || c.mentions || c.appearances);
+      const hay = (name + ' ' + aka.join(' ') + ' ' + (c.who||'') + ' ' + (c.role||'') + ' ' + facts.join(' ')).toLowerCase();
+      if (q && hay.indexOf(q) === -1) return;
+      shown++;
+      const acc = accentFor(name);
+      let h = '<div class="cc" style="--acc:' + acc + '">';
+      h += '<div class="cc-name">' + ICONS.user + '<span>' + esc(name) + '</span>';
+      if (aka.length) h += ' <span class="cc-aka">aka ' + esc(aka.join(', ')) + '</span>';
+      h += '</div>';
+      if (c.role) h += '<span class="cc-role">' + esc(c.role) + '</span>';
+      if (c.who) h += '<div class="cc-who">' + esc(c.who) + '</div>';
+      if (c.first || c.firstMention) h += '<div class="cc-block"><div class="cc-h">' + ICONS.first + 'first appearance</div><div class="cc-line">' + esc(c.first || c.firstMention) + '</div></div>';
+      if (seen.length) h += '<div class="cc-block"><div class="cc-h">' + ICONS.seen + 'mentioned in</div><div class="cc-line">' + esc(seen.join(' · ')) + '</div></div>';
+      if (facts.length) h += '<div class="cc-block"><div class="cc-h">' + ICONS.facts + 'facts & stats</div><ul>' + facts.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul></div>';
+      if (rels.length) h += '<div class="cc-block"><div class="cc-h">' + ICONS.rel + 'relationships</div><ul>' + rels.map(r => '<li>' + esc(r) + '</li>').join('') + '</ul></div>';
+      if (c.arc) h += '<div class="cc-block"><div class="cc-h">' + ICONS.arc + 'arc</div><div class="cc-line">' + esc(c.arc) + '</div></div>';
+      h += '</div>';
+      charsGrid.insertAdjacentHTML('beforeend', h);
+    });
+    if (charsData.length && !shown){
+      charsGrid.innerHTML = '<div class="cc-line" style="color:var(--muted);padding:4px">no character matches "' + esc(q) + '"</div>';
+    }
+  }
+
+  function parseChars(raw){
+    let s = String(raw || '').trim();
+    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    try { const j = JSON.parse(s); if (j && Array.isArray(j.characters)) return j.characters; if (Array.isArray(j)) return j; } catch(e){}
+    const arrStart = s.indexOf('[');
+    if (arrStart === -1) return null;
+    const objs = [];
+    let depth = 0, start = -1, inStr = false, escd = false;
+    for (let i = arrStart + 1; i < s.length; i++){
+      const ch = s[i];
+      if (inStr){
+        if (escd) escd = false;
+        else if (ch === '\\') escd = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"'){ inStr = true; continue; }
+      if (ch === '{'){ if (depth === 0) start = i; depth++; }
+      else if (ch === '}'){ depth--; if (depth === 0 && start !== -1){ try { objs.push(JSON.parse(s.slice(start, i + 1))); } catch(e){} start = -1; } }
+      else if (ch === ']' && depth === 0){ break; }
+    }
+    return objs.length ? objs : null;
+  }
+
+  function loadCharsCache(){
+    try {
+      const c = JSON.parse(localStorage.getItem('fj-chars') || 'null');
+      if (c && Array.isArray(c.data) && c.data.length){
+        charsData = c.data;
+        renderChars();
+        charsStatus.textContent = c.data.length + ' characters · built ' + new Date(c.ts).toLocaleString() + ' · tap build to refresh';
+      }
+    } catch(e){}
+  }
+
+  let charsBusy = false;
+  async function buildCharacters(){
+    if (charsBusy) return;
+    if (!apiKey){ charsStatus.textContent = 'no api key — paste key + save above.'; charsStatus.style.color = 'var(--red)'; return; }
+    const src = await resolveSource();
+    if (!src.ok){ charsStatus.textContent = src.msg; charsStatus.style.color = 'var(--red)'; return; }
+    charsBusy = true;
+    charsBuild.disabled = true;
+    charsBuild.textContent = '...';
+    charsStatus.style.color = 'var(--orange)';
+    charsStatus.textContent = 'reading the whole source for every character… this can take a minute.';
+    const prompt = 'Scan the ENTIRE provided manuscript for "Finding Joy" (a 3-book YA trilogy). Build a complete character database covering EVERY named or clearly identified character — protagonists, supporting, minor, and one-off named figures. Order the array from most to least significant.\n\nReturn ONLY a JSON object, no markdown, no commentary, in exactly this shape:\n{"characters":[{"name":"","aka":[],"role":"","who":"","first":"","seen":[],"facts":[],"relationships":[],"arc":""}]}\n\nField rules:\n- name: canonical full name.\n- aka: other names/nicknames/aliases (array, [] if none).\n- role: 1-3 words (e.g. "Protagonist", "Antagonist", "Mentor", "Minor").\n- who: one tight sentence on who they are.\n- first: where they first appear, e.g. "Book 1, ch 3".\n- seen: list of books/chapters they appear or are mentioned in, e.g. ["B1 ch1-5","B2 ch12"].\n- facts: every concrete fact/stat found — age, appearance, origin, skills, possessions, secrets, etc. (array of short strings).\n- relationships: ties to other characters, "Name — relation".\n- arc: one or two sentences on their overall arc.\nUse "" or [] for anything the manuscript does not establish. Do not invent. Keep strings concise. Output valid JSON only.';
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8000,
+          messages: [{ role: 'user', content: src.blocks.concat([{ type: 'text', text: prompt }]) }]
+        })
+      });
+      if (!response.ok){
+        const t = await response.text();
+        charsStatus.style.color = 'var(--red)';
+        charsStatus.textContent = 'http ' + response.status + ': ' + t.slice(0, 200);
+        return;
+      }
+      const data = await response.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+      const list = parseChars(text);
+      if (!list || !list.length){
+        charsStatus.style.color = 'var(--red)';
+        charsStatus.textContent = 'could not parse character data. raw start: ' + text.slice(0, 160);
+        return;
+      }
+      charsData = list;
+      renderChars();
+      const ts = Date.now();
+      try { localStorage.setItem('fj-chars', JSON.stringify({ ts: ts, src: source, data: list })); } catch(e){}
+      charsStatus.style.color = 'var(--muted)';
+      charsStatus.textContent = list.length + ' characters · built ' + new Date(ts).toLocaleString() + ' · tap build to refresh';
+    } catch(err){
+      charsStatus.style.color = 'var(--red)';
+      charsStatus.textContent = 'error: ' + (err && err.message ? err.message : err);
+    } finally {
+      charsBusy = false;
+      charsBuild.disabled = false;
+      charsBuild.textContent = 'build';
+    }
+  }
+
+  function showView(which){
+    const isChars = which === 'chars';
+    navChars.classList.toggle('active', isChars);
+    navCli.classList.toggle('active', !isChars);
+    viewChars.style.display = isChars ? 'flex' : 'none';
+    viewCli.style.display = isChars ? 'none' : '';
+  }
+  navCli.addEventListener('click', () => showView('cli'));
+  navChars.addEventListener('click', () => showView('chars'));
+  charsBuild.addEventListener('click', buildCharacters);
+  charsSearch.addEventListener('input', renderChars);
+  loadCharsCache();
 })();
 </script>
 </body>
