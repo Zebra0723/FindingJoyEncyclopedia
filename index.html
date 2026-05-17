@@ -222,6 +222,14 @@
       r.onerror = () => reject(r.error);
     }));
   }
+  function idbDel(key){
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
 
   function println(text, cls){
     const span = document.createElement('span');
@@ -309,8 +317,8 @@
       '  fj check <thing>    focused check',
       '  fj ? <question>     ask anything',
       '  fj help             show this',
-      '  fj clear            wipe the chat',
-      '  clear               clear screen',
+      '  fj clear            wipe chat + forget pdf',
+      '  clear               clear screen only',
       '',
       'each answer ends with sources (chapters/pages).'
     ];
@@ -398,7 +406,18 @@
     history.unshift(trimmed);
     histIdx = -1;
 
-    if (trimmed === 'clear' || trimmed === 'fj clear'){ out.innerHTML = ''; return; }
+    if (trimmed === 'clear'){ out.innerHTML = ''; return; }
+    if (trimmed === 'fj clear'){
+      out.innerHTML = '';
+      pdfData = null;
+      pdfName = null;
+      pdfInput.value = '';
+      pdfStatus.textContent = 'no file yet';
+      pdfStatus.style.color = '';
+      idbDel('pdf').catch(() => {});
+      println('chat + pdf cleared.', 'yellow');
+      return;
+    }
     if (trimmed === 'fj help' || trimmed === 'help'){ showHelp(); return; }
     if (!trimmed.startsWith('fj')){
       println('unknown. type "fj help"', 'orange');
