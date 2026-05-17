@@ -198,6 +198,31 @@
   try { apiKey = localStorage.getItem('fj-key') || ''; } catch(e) {}
   if (apiKey) keyInput.value = apiKey;
 
+  function idbOpen(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('fj-db', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('files');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function idbSet(key, val){
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(val, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+  function idbGet(key){
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction('files', 'readonly');
+      const r = tx.objectStore('files').get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    }));
+  }
+
   function println(text, cls){
     const span = document.createElement('span');
     if (cls) span.className = cls;
@@ -218,6 +243,16 @@
   println('1. paste api key + save', 'muted');
   println('2. drop pdf', 'muted');
   println('3. type: fj help', 'muted');
+
+  idbGet('pdf').then(saved => {
+    if (saved && saved.data){
+      pdfData = saved.data;
+      pdfName = saved.name;
+      pdfStatus.textContent = '✓ ' + saved.name + ' (restored)';
+      pdfStatus.style.color = 'var(--yellow)';
+      println('pdf restored: ' + saved.name, 'yellow');
+    }
+  }).catch(() => {});
 
   saveKey.addEventListener('click', () => {
     apiKey = keyInput.value.trim();
@@ -248,6 +283,8 @@
         pdfStatus.style.color = 'var(--yellow)';
         println('pdf loaded: ' + file.name, 'yellow');
         println('ready. try: fj Laleh', 'muted');
+        idbSet('pdf', { data: pdfData, name: pdfName })
+          .catch(() => println('warn: could not save pdf for next time', 'orange'));
       };
       reader.onerror = () => {
         pdfStatus.textContent = 'failed to read pdf';
