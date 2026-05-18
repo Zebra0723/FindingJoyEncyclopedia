@@ -343,6 +343,38 @@
     font-size: 11px;
     cursor: pointer;
   }
+
+  html, body { transition: background-color .18s ease; }
+  html.light {
+    --bg: #eaeef5;
+    --bg-dark: #ffffff;
+    --text: #232a3a;
+    --muted: #6f7889;
+    --border: #e4e8f1;
+    --green: #0fa874;
+    --green-light: #0b8f60;
+    --red: #d6453f;
+    --orange: #cf7c1c;
+    --yellow: #ab7a10;
+  }
+  html.light body { background: var(--bg); color: var(--text); }
+  html.light .header { color: var(--green-light); }
+  html.light .dot { box-shadow: 0 0 6px rgba(15,168,116,.45); }
+  html.light .row,
+  html.light .nav { box-shadow: 0 1px 3px rgba(22,34,64,.05); }
+  html.light .cc {
+    border-color: var(--border);
+    box-shadow: 0 1px 5px rgba(22,34,64,.07);
+  }
+  html.light .cc-name { color: #20283c; }
+  html.light .cc-role { color: #1b2233; }
+  html.light .btn,
+  html.light .srcbtn.active,
+  html.light .nav button.active,
+  html.light .cb.user { color: #08231b; }
+  html.light .cb.bot { box-shadow: 0 1px 4px rgba(22,34,64,.06); }
+  html.light #chat-thread::-webkit-scrollbar-thumb,
+  html.light #chars-grid::-webkit-scrollbar-thumb { background: #c7cedd; }
 </style>
 </head>
 <body>
@@ -1201,6 +1233,7 @@ CHAPTER PLAN NOTE: Chapters 16 and 35 are intentionally unused/skipped. Never tr
       pair[0].classList.toggle('active', on);
       pair[1].style.display = on ? (k === 'cli' ? '' : 'flex') : 'none';
     });
+    document.documentElement.classList.toggle('light', which === 'chars' || which === 'chat');
   }
   navCli.addEventListener('click', () => showView('cli'));
   navChars.addEventListener('click', () => showView('chars'));
