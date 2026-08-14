@@ -152,16 +152,20 @@
     color: var(--bg-dark);
     font-weight: 600;
   }
-  #studio-pick {
+  #reedsy-text {
     margin-top: 8px;
     width: 100%;
+    height: 140px;
     background: var(--bg);
     color: var(--text);
     border: 0.5px solid var(--border);
     border-radius: 6px;
-    padding: 6px;
+    padding: 8px;
     font-family: inherit;
     font-size: 12px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
   }
   .ico { width: 1em; height: 1em; vertical-align: -0.13em; flex-shrink: 0; }
   .nav {
@@ -392,14 +396,14 @@
 
   <div class="row" id="src-row">
     <label>source:</label>
-    <button class="srcbtn" id="src-studio" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2zM21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg> studio</button>
+    <button class="srcbtn" id="src-reedsy" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h6M7 13h10M7 17h7"/></svg> reedsy</button>
     <button class="srcbtn" id="src-pdf" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l8-8"/></svg> pdf</button>
   </div>
 
-  <div class="pdf-zone" id="studio-zone" style="display:none; cursor:pointer;">
-    <div class="pdf-zone-label">vortex studio</div>
-    <div id="studio-status" class="pdf-status">scanning this browser…</div>
-    <select id="studio-pick" style="display:none;"></select>
+  <div class="pdf-zone" id="reedsy-zone" style="display:none; cursor:default;">
+    <div class="pdf-zone-label">reedsy manuscript (paste)</div>
+    <div id="reedsy-status" class="pdf-status">paste your reedsy text below — it saves in this browser and is used live as the source.</div>
+    <textarea id="reedsy-text" placeholder="in reedsy: select all, copy, paste here. re-paste any time to refresh."></textarea>
   </div>
 
   <label class="pdf-zone" for="pdf-input" id="pdf-zone" style="display:none;">
@@ -467,10 +471,10 @@
   const pdfInput = document.getElementById('pdf-input');
   const pdfStatus = document.getElementById('pdf-status');
   const pdfZone = document.getElementById('pdf-zone');
-  const studioZone = document.getElementById('studio-zone');
-  const studioStatus = document.getElementById('studio-status');
-  const studioPick = document.getElementById('studio-pick');
-  const srcStudio = document.getElementById('src-studio');
+  const reedsyZone = document.getElementById('reedsy-zone');
+  const reedsyStatus = document.getElementById('reedsy-status');
+  const reedsyText = document.getElementById('reedsy-text');
+  const srcReedsy = document.getElementById('src-reedsy');
   const srcPdf = document.getElementById('src-pdf');
   const chips = document.querySelectorAll('.chip');
   const keyInput = document.getElementById('api-key');
@@ -498,7 +502,6 @@
   let busy = false;
   let apiKey = '';
   let source = null;
-  let studioKey = '';
 
   try { apiKey = localStorage.getItem('fj-key') || ''; } catch(e) {}
   if (apiKey) keyInput.value = apiKey;
@@ -546,7 +549,7 @@
 
   println('fj v1.0 — standalone.', 'green');
   println('1. paste api key + save', 'muted');
-  println('2. choose a source: studio or pdf', 'muted');
+  println('2. choose a source: reedsy or pdf', 'muted');
   println('3. type: fj help', 'muted');
 
   idbGet('pdf').then(saved => {
@@ -558,194 +561,54 @@
     }
   }).catch(() => {});
 
-  const RESERVED = ['fj-key', 'fj-studio-key'];
-  let studioRef = null;
-  let studioCands = [];
-
-  function stripHtml(s){
-    if (s.indexOf('<') === -1) return s;
-    try {
-      const d = document.createElement('div');
-      d.innerHTML = s;
-      return d.textContent || d.innerText || '';
-    } catch(e){ return s; }
-  }
-  function jsonProse(v, acc){
-    if (v == null) return;
-    if (typeof v === 'string'){ if (v.trim()) acc.push(v); return; }
-    if (typeof v !== 'object') return;
-    if (Array.isArray(v)){ v.forEach(x => jsonProse(x, acc)); return; }
-    Object.keys(v).forEach(k => jsonProse(v[k], acc));
-  }
-  function extractProse(raw){
-    if (typeof raw !== 'string') {
-      try { raw = JSON.stringify(raw); } catch(e){ return ''; }
-    }
-    let s = (raw || '').trim();
-    if (!s) return '';
-    if (s[0] === '{' || s[0] === '['){
-      try {
-        const j = JSON.parse(s);
-        if (typeof j === 'string') return stripHtml(j).trim();
-        const acc = [];
-        jsonProse(j, acc);
-        if (acc.length) return stripHtml(acc.join('\n')).trim();
-      } catch(e){}
-    }
-    return stripHtml(s).trim();
-  }
   function wordCount(t){
-    const m = t.trim().match(/\S+/g);
+    const m = (t || '').trim().match(/\S+/g);
     return m ? m.length : 0;
   }
 
-  function scanLocal(){
-    const list = [];
-    for (let i = 0; i < localStorage.length; i++){
-      const k = localStorage.key(i);
-      if (!k || RESERVED.indexOf(k) !== -1) continue;
-      let raw;
-      try { raw = localStorage.getItem(k); } catch(e){ continue; }
-      const text = extractProse(raw);
-      const w = wordCount(text);
-      if (w >= 50) list.push({ ref: { t:'ls', k:k }, key:k, words:w });
-    }
-    return list;
-  }
-  async function scanIdb(){
-    const found = [];
-    if (!indexedDB.databases) return found;
-    let dbs;
-    try { dbs = await indexedDB.databases(); } catch(e){ return found; }
-    for (const info of dbs){
-      const name = info && info.name;
-      if (!name || name === 'fj-db') continue;
-      let db;
-      try {
-        db = await new Promise((res, rej) => {
-          const r = indexedDB.open(name);
-          r.onsuccess = () => res(r.result);
-          r.onerror = () => rej(r.error);
-          r.onblocked = () => rej(new Error('blocked'));
-        });
-      } catch(e){ continue; }
-      const stores = Array.from(db.objectStoreNames || []);
-      for (const sName of stores){
-        let rows;
-        try {
-          rows = await new Promise((res, rej) => {
-            const tx = db.transaction(sName, 'readonly');
-            const rq = tx.objectStore(sName).getAll();
-            rq.onsuccess = () => res(rq.result || []);
-            rq.onerror = () => rej(rq.error);
-          });
-        } catch(e){ continue; }
-        let best = '';
-        rows.forEach(row => {
-          const t = extractProse(row);
-          if (t.length > best.length) best = t;
-        });
-        const w = wordCount(best);
-        if (w >= 50) found.push({ ref:{ t:'idb', db:name, s:sName }, key:name + ' › ' + sName, words:w });
-      }
-      try { db.close(); } catch(e){}
-    }
-    return found;
-  }
-  async function readStudio(){
-    if (!studioRef) return '';
-    if (studioRef.t === 'ls'){
-      try { return extractProse(localStorage.getItem(studioRef.k) || ''); } catch(e){ return ''; }
-    }
-    try {
-      const db = await new Promise((res, rej) => {
-        const r = indexedDB.open(studioRef.db);
-        r.onsuccess = () => res(r.result);
-        r.onerror = () => rej(r.error);
-      });
-      const rows = await new Promise((res, rej) => {
-        const tx = db.transaction(studioRef.s, 'readonly');
-        const rq = tx.objectStore(studioRef.s).getAll();
-        rq.onsuccess = () => res(rq.result || []);
-        rq.onerror = () => rej(rq.error);
-      });
-      try { db.close(); } catch(e){}
-      let best = '';
-      rows.forEach(row => {
-        const t = extractProse(row);
-        if (t.length > best.length) best = t;
-      });
-      return best;
-    } catch(e){ return ''; }
-  }
+  try {
+    const saved = localStorage.getItem('fj-reedsy-text') || '';
+    if (saved) reedsyText.value = saved;
+  } catch(e){}
 
-  function setStudio(c){
-    studioRef = c.ref;
-    studioKey = c.key;
-    try { localStorage.setItem('fj-studio-key', JSON.stringify({ key: c.key })); } catch(e){}
-    studioStatus.textContent = '✓ ' + c.key + '  ~' + c.words + ' words (live)';
-    studioStatus.style.color = 'var(--yellow)';
-  }
-  async function pickStudio(){
-    studioStatus.textContent = 'scanning this browser…';
-    studioStatus.style.color = 'var(--orange)';
-    studioPick.style.display = 'none';
-    let cands = scanLocal();
-    try { cands = cands.concat(await scanIdb()); } catch(e){}
-    cands.sort((a, b) => b.words - a.words);
-    studioCands = cands;
-    if (!cands.length){
-      studioRef = null;
-      studioStatus.textContent = 'no studio text in this browser. open vortex on this device & let it save, then tap here to rescan — or use pdf.';
-      studioStatus.style.color = 'var(--red)';
-      return;
+  function updateReedsyStatus(){
+    const t = reedsyText.value || '';
+    const w = wordCount(t);
+    if (!w){
+      reedsyStatus.textContent = 'paste your reedsy text below — it saves in this browser and is used live as the source.';
+      reedsyStatus.style.color = 'var(--muted)';
+    } else {
+      reedsyStatus.textContent = '✓ saved · ~' + w.toLocaleString() + ' words (updates whenever you re-paste)';
+      reedsyStatus.style.color = 'var(--yellow)';
     }
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem('fj-studio-key') || 'null'); } catch(e){}
-    let chosen = cands[0];
-    if (saved && saved.key){
-      const m = cands.filter(c => c.key === saved.key)[0];
-      if (m) chosen = m;
-    }
-    setStudio(chosen);
-    studioPick.innerHTML = '';
-    cands.forEach((c, i) => {
-      const o = document.createElement('option');
-      o.value = String(i);
-      o.textContent = c.key + '  (~' + c.words + ' words)';
-      studioPick.appendChild(o);
-    });
-    studioPick.value = String(cands.indexOf(chosen));
-    studioPick.style.display = cands.length > 1 ? 'block' : 'none';
   }
+  updateReedsyStatus();
+  reedsyText.addEventListener('input', () => {
+    try { localStorage.setItem('fj-reedsy-text', reedsyText.value || ''); } catch(e){}
+    updateReedsyStatus();
+  });
 
   function chooseSource(s){
     source = s;
-    srcStudio.classList.toggle('active', s === 'studio');
+    srcReedsy.classList.toggle('active', s === 'reedsy');
     srcPdf.classList.toggle('active', s === 'pdf');
     if (s === 'pdf'){
       pdfZone.style.display = '';
-      studioZone.style.display = 'none';
+      reedsyZone.style.display = 'none';
       println(pdfName ? ('source: pdf — using ' + pdfName + ' (tap to change)') : 'source: pdf — pick a file above.', 'yellow');
     } else {
-      studioZone.style.display = '';
+      reedsyZone.style.display = '';
       pdfZone.style.display = 'none';
-      println('source: studio — reading vortex live from this browser.', 'yellow');
-      pickStudio();
+      const w = wordCount(reedsyText.value || '');
+      println(w
+        ? ('source: reedsy — using ~' + w.toLocaleString() + ' words from your paste-in.')
+        : 'source: reedsy — paste your manuscript in the box above (in reedsy: select all, copy).',
+        'yellow');
     }
   }
 
-  srcStudio.addEventListener('click', () => chooseSource('studio'));
+  srcReedsy.addEventListener('click', () => chooseSource('reedsy'));
   srcPdf.addEventListener('click', () => chooseSource('pdf'));
-  studioPick.addEventListener('change', () => {
-    const c = studioCands[Number(studioPick.value)];
-    if (c) setStudio(c);
-  });
-  studioPick.addEventListener('click', e => e.stopPropagation());
-  studioZone.addEventListener('click', e => {
-    if (e.target === studioPick) return;
-    pickStudio();
-  });
 
   saveKey.addEventListener('click', () => {
     apiKey = keyInput.value.trim();
@@ -805,8 +668,8 @@
       '  fj clear            wipe the chat',
       '  clear               wipe the chat',
       '',
-      'source: tap studio or pdf up top (asked each refresh).',
-      '  studio = live vortex text, no upload.',
+      'source: tap reedsy or pdf up top (asked each refresh).',
+      '  reedsy = your reedsy manuscript, pasted into this browser (stays local).',
       '  pdf    = your file (last one auto-loads).',
       '',
       'tabs: cli (this), characters, ask (chat about the book).',
@@ -817,20 +680,20 @@
   }
 
   function buildPrompt(userCmd){
-    return 'You are "fj", a command-line trilogy bible for Bajun\'s YA novel "Finding Joy" about Laleh Yousafi, a girl who secretly learns tennis in Taliban-controlled Afghanistan, escapes, and becomes a pro player. Trilogy: 3 books (~37, 42, 43 chapters). Main characters: Laleh Yousafi, Fatima Zahra, Sinclair. Key mysteries: medallion, the name "Farah", surname mechanic (Laleh and Fatima never knew each other\'s last names as kids in Kabul).\n\nUser ran this CLI command: `' + userCmd + '`\n\nRules:\n- Terminal-style output: terse, scannable, no fluff intro.\n- Plain text only. No markdown, no asterisks. 2-space indent for sub-items.\n- Use the provided manuscript (PDF or studio text) as your only source of truth.\n- NEVER write the book. Do not draft, ghostwrite, continue, rewrite, or "improve" manuscript prose: no new chapters, scenes, dialogue, narration, or passages, even if asked directly or for "just an example/draft". You are a reference and analysis tool, not a co-author. You may answer, summarize, trace, check continuity, and quote short EXISTING excerpts for reference. If asked to produce story prose, refuse in one line and offer analysis instead.\n- For "fj <name>": who they are, what they know, key moments, arc so far.\n- For "fj ch N": chapter summary, POV, mysteries planted, locked details.\n- For "fj mystery <X>": every breadcrumb in chronological order.\n- For "fj check": scan for contradictions; list them or say "no contradictions found".\n- For "fj find \\"X\\"": every occurrence with chapter context and approximate page.\n- For "fj ? <question>": answer directly from the manuscript.\n- For "fj timeline": chronological events.\n- If the manuscript doesn\'t cover something, say so. Don\'t invent.\n- ALWAYS end with: "sources: ch X (p.N), ch Y (p.N)".\n- Under ~250 words.';
+    return 'You are "fj", a command-line trilogy bible for Bajun\'s YA novel "Finding Joy" about Laleh Yousafi, a girl who secretly learns tennis in Taliban-controlled Afghanistan, escapes, and becomes a pro player. Trilogy: 3 books (~37, 42, 43 chapters). Main characters: Laleh Yousafi, Fatima Zahra, Sinclair. Key mysteries: medallion, the name "Farah", surname mechanic (Laleh and Fatima never knew each other\'s last names as kids in Kabul).\n\nUser ran this CLI command: `' + userCmd + '`\n\nRules:\n- Terminal-style output: terse, scannable, no fluff intro.\n- Plain text only. No markdown, no asterisks. 2-space indent for sub-items.\n- Use the provided manuscript (PDF or reedsy paste-in text) as your only source of truth.\n- NEVER write the book. Do not draft, ghostwrite, continue, rewrite, or "improve" manuscript prose: no new chapters, scenes, dialogue, narration, or passages, even if asked directly or for "just an example/draft". You are a reference and analysis tool, not a co-author. You may answer, summarize, trace, check continuity, and quote short EXISTING excerpts for reference. If asked to produce story prose, refuse in one line and offer analysis instead.\n- For "fj <name>": who they are, what they know, key moments, arc so far.\n- For "fj ch N": chapter summary, POV, mysteries planted, locked details.\n- For "fj mystery <X>": every breadcrumb in chronological order.\n- For "fj check": scan for contradictions; list them or say "no contradictions found".\n- For "fj find \\"X\\"": every occurrence with chapter context and approximate page.\n- For "fj ? <question>": answer directly from the manuscript.\n- For "fj timeline": chronological events.\n- If the manuscript doesn\'t cover something, say so. Don\'t invent.\n- ALWAYS end with: "sources: ch X (p.N), ch Y (p.N)".\n- Under ~250 words.';
   }
 
   async function resolveSource(){
-    if (!source) return { ok:false, msg:'choose a source first — tap studio or pdf above.' };
+    if (!source) return { ok:false, msg:'choose a source first — tap reedsy or pdf above.' };
     if (source === 'pdf'){
       if (!pdfData) return { ok:false, msg:'no pdf loaded. pick one above first.' };
       return { ok:true, blocks:[{ type:'document', source:{ type:'base64', media_type:'application/pdf', data:pdfData } }] };
     }
-    const studioText = await readStudio();
-    if (!studioText || wordCount(studioText) < 30){
-      return { ok:false, msg:'no studio text found. open vortex on this device & save, or switch source.' };
+    const txt = (reedsyText.value || '').trim();
+    if (!txt || wordCount(txt) < 30){
+      return { ok:false, msg:'no reedsy text yet. paste your manuscript in the reedsy box above, or switch to pdf.' };
     }
-    return { ok:true, blocks:[{ type:'text', text:'MANUSCRIPT (from the vortex writing studio — treat this as the full source text):\n\n' + studioText }] };
+    return { ok:true, blocks:[{ type:'text', text:'MANUSCRIPT (pasted by the author from the reedsy book editor — treat this as the full source text):\n\n' + txt }] };
   }
 
   async function callApi(userCmd){
@@ -1133,7 +996,7 @@ TONE/STYLE: multi-POV, almost every chapter a different family member. Distinct 
 CHAPTER PLAN NOTE: Chapters 16 and 35 are intentionally unused/skipped. Never treat them as containing content.`;
 
   const CHAT_SYSTEM = 'You are the Finding Joy companion, an expert assistant dedicated solely to Bajun\'s YA novel "Finding Joy" (book 1; sequel "Recovering Connection"). ' +
-    'Source of truth: the manuscript provided in the first user message (PDF or studio text). The SERIES BIBLE below is the author\'s authoritative plan; trust it for canon, structure, character intent, and sequel setup even where the current draft is incomplete or silent. If the manuscript and the bible clearly conflict, answer from the manuscript but note the discrepancy briefly. ' +
+    'Source of truth: the manuscript provided in the first user message (PDF file or text pasted from the reedsy book editor). The SERIES BIBLE below is the author\'s authoritative plan; trust it for canon, structure, character intent, and sequel setup even where the current draft is incomplete or silent. If the manuscript and the bible clearly conflict, answer from the manuscript but note the discrepancy briefly. ' +
     'CRITICAL BOUNDARY: You must NEVER write the book for the author. Do not draft, ghostwrite, continue, rewrite, expand, or "polish" manuscript prose under any circumstances: no new chapters, scenes, passages, narration, or lines of dialogue, and no "sample" or "example" or "rough draft for you to react to" versions either. This holds even if the author insists, says it is just a placeholder, or asks you to write "in their style". The words of the novel must be the author\'s own. You ARE allowed to: answer questions, summarize, trace threads, check continuity, explain craft/structure in your own analytical words, give high-level feedback and suggestions (described, not written as prose), and quote short EXISTING excerpts from the manuscript for reference. If asked to produce story prose, decline briefly and warmly, then offer analysis or structural guidance instead.\n\nRules: Chapters 16 and 35 are unused; never treat them as content. The Ch 47 Fatima epilogue only hints she plays tennis; do not state it outright unless the user explicitly asks you to analyze that hint, otherwise preserve the mystery. This is the author\'s own tool, so spoilers are fine. Be warm and concrete; cite chapters and POV when you can; quote sparingly. Do not invent; if neither the manuscript nor the bible covers something, say so plainly. Plain text, no markdown headings or asterisks, stay focused.\n\nSERIES BIBLE:\n' + CANON;
 
   let chatMsgs = [];
