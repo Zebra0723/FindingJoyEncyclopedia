@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>fj bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #0a0e0a;
+    color: #c0dd97;
+    font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 460px;
+    margin: 60px auto;
+    padding: 22px;
+    border: 0.5px solid #1a2a1a;
+    border-radius: 10px;
+    background: #050805;
+  }
+  h1 { font-size: 13px; color: #5dcaa5; margin: 0 0 12px; letter-spacing: 0.02em; }
+  #msg { font-size: 12px; line-height: 1.6; color: #888780; }
+  .ok  { color: #97c459 !important; }
+  .err { color: #e24b4a !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>fj ← reedsy bridge</h1>
+  <div id="msg">waiting for reedsy…</div>
+</div>
+<script>
+(function(){
+  var msg = document.getElementById('msg');
+  var ALLOWED = /^https?:\/\/([a-z0-9-]+\.)*reedsy\.com$/i;
+  var received = false;
+
+  window.addEventListener('message', function(e){
+    if (received) return;
+    if (!ALLOWED.test(e.origin)) return;
+    var d = e.data;
+    if (!d || d.type !== 'fj-manuscript' || typeof d.text !== 'string') return;
+    var t = d.text.trim();
+    if (!t){ msg.className = 'err'; msg.textContent = 'reedsy sent empty text.'; return; }
+    try {
+      localStorage.setItem('fj-reedsy-text', t);
+    } catch(err){
+      msg.className = 'err';
+      msg.textContent = 'could not save: ' + (err && err.message ? err.message : err);
+      return;
+    }
+    received = true;
+    var words = (t.match(/\S+/g) || []).length;
+    msg.className = 'ok';
+    msg.textContent = '✓ saved ~' + words.toLocaleString() + ' words. closing…';
+    setTimeout(function(){ try { window.close(); } catch(e){} }, 900);
+  }, false);
+
+  if (window.opener){
+    try { window.opener.postMessage({ type:'fj-bridge-ready' }, '*'); } catch(e){}
+  } else {
+    msg.className = 'err';
+    msg.textContent = 'no opener. this page must be opened by the fj bookmarklet on reedsy.com.';
+  }
+})();
+</script>
+</body>
+</html>

@@ -167,6 +167,37 @@
     outline: none;
     box-sizing: border-box;
   }
+  .reedsy-tools { margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end; }
+  #reedsy-install-body {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    text-align: left;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  #reedsy-install-body ol { margin: 6px 0 6px 18px; padding: 0; }
+  #reedsy-install-body li { margin: 3px 0; }
+  #reedsy-install-body .note { font-size: 10px; color: var(--muted); margin-top: 6px; }
+  .code-block {
+    background: var(--bg-dark);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    margin: 8px 0 6px;
+    max-height: 120px;
+    overflow: auto;
+  }
+  .code-block code {
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
   .ico { width: 1em; height: 1em; vertical-align: -0.13em; flex-shrink: 0; }
   .nav {
     display: flex;
@@ -401,9 +432,24 @@
   </div>
 
   <div class="pdf-zone" id="reedsy-zone" style="display:none; cursor:default;">
-    <div class="pdf-zone-label">reedsy manuscript (paste)</div>
-    <div id="reedsy-status" class="pdf-status">paste your reedsy text below — it saves in this browser and is used live as the source.</div>
+    <div class="pdf-zone-label">reedsy manuscript</div>
+    <div id="reedsy-status" class="pdf-status">paste your reedsy text below, or set up the one-tap bookmarklet.</div>
     <textarea id="reedsy-text" placeholder="in reedsy: select all, copy, paste here. re-paste any time to refresh."></textarea>
+    <div class="reedsy-tools">
+      <button class="iconbtn" id="reedsy-install-btn" type="button">bookmarklet setup</button>
+    </div>
+    <div id="reedsy-install-body" style="display:none;">
+      <p>one-tap sync from reedsy. after setup, you just tap the fj bookmark while on reedsy and the visible text hops straight into this app.</p>
+      <ol>
+        <li>tap <b>copy code</b> below.</li>
+        <li>in safari, bookmark <em>any</em> page (share → add bookmark).</li>
+        <li>open bookmarks, tap edit, open the new bookmark: rename it <b>fj sync</b> and replace its URL with the pasted code.</li>
+        <li>open your book in reedsy → tap the fj sync bookmark → text lands here.</li>
+      </ol>
+      <p class="note">note: the bookmarklet grabs whatever reedsy currently has loaded in the editor. if reedsy only shows one chapter at a time, tap it per chapter or paste manually.</p>
+      <div class="code-block"><code id="reedsy-bmk"></code></div>
+      <button class="iconbtn" id="reedsy-bmk-copy" type="button">copy code</button>
+    </div>
   </div>
 
   <label class="pdf-zone" for="pdf-input" id="pdf-zone" style="display:none;">
@@ -475,6 +521,10 @@
   const reedsyStatus = document.getElementById('reedsy-status');
   const reedsyText = document.getElementById('reedsy-text');
   const srcReedsy = document.getElementById('src-reedsy');
+  const reedsyInstallBtn = document.getElementById('reedsy-install-btn');
+  const reedsyInstallBody = document.getElementById('reedsy-install-body');
+  const reedsyBmk = document.getElementById('reedsy-bmk');
+  const reedsyBmkCopy = document.getElementById('reedsy-bmk-copy');
   const srcPdf = document.getElementById('src-pdf');
   const chips = document.querySelectorAll('.chip');
   const keyInput = document.getElementById('api-key');
@@ -586,6 +636,41 @@
   reedsyText.addEventListener('input', () => {
     try { localStorage.setItem('fj-reedsy-text', reedsyText.value || ''); } catch(e){}
     updateReedsyStatus();
+  });
+
+  function buildBookmarklet(){
+    const bridgeUrl = new URL('bridge.html', window.location.href).href;
+    const T = "'" + bridgeUrl.replace(/'/g, "\\'") + "'";
+    const body = "(function(){var T=" + T + ";var q=document.querySelectorAll('[contenteditable=\"true\"]');var t=[].map.call(q,function(e){return e.innerText||''}).join('\\n\\n').trim();if(!t||t.length<500){var s=(window.getSelection&&getSelection().toString())||'';if(s.length>t.length)t=s}if(!t||t.length<200){alert('fj: no manuscript text found. open your book in reedsy first.');return}var w=window.open(T+'#fj-bridge','fjBridge');if(!w){alert('fj: allow popups for reedsy.com.');return}var sent=false;function h(e){if(!e.data||e.data.type!=='fj-bridge-ready')return;e.source.postMessage({type:'fj-manuscript',text:t},e.origin);sent=true;setTimeout(function(){window.removeEventListener('message',h)},5000)}window.addEventListener('message',h,false);setTimeout(function(){if(!sent){try{w.postMessage({type:'fj-manuscript',text:t},new URL(T).origin)}catch(e){}}},3000)})();";
+    return 'javascript:' + body;
+  }
+  reedsyBmk.textContent = buildBookmarklet();
+  reedsyInstallBtn.addEventListener('click', () => {
+    const shown = reedsyInstallBody.style.display !== 'none';
+    reedsyInstallBody.style.display = shown ? 'none' : 'block';
+    reedsyInstallBtn.textContent = shown ? 'bookmarklet setup' : 'hide setup';
+  });
+  reedsyBmkCopy.addEventListener('click', async () => {
+    const orig = reedsyBmkCopy.textContent;
+    try {
+      await navigator.clipboard.writeText(reedsyBmk.textContent);
+      reedsyBmkCopy.textContent = '✓ copied';
+    } catch(e){
+      const range = document.createRange();
+      range.selectNode(reedsyBmk);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      reedsyBmkCopy.textContent = 'select all + copy';
+    }
+    setTimeout(() => { reedsyBmkCopy.textContent = orig; }, 1800);
+  });
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'fj-reedsy-text' && typeof e.newValue === 'string'){
+      reedsyText.value = e.newValue;
+      updateReedsyStatus();
+    }
   });
 
   function chooseSource(s){
